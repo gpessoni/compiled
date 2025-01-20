@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/gpessoni/compiled/persistence"
+	"github.com/gpessoni/compiled/application/dto"
 )
 
 var marketplaceApi string
@@ -15,7 +15,7 @@ func init() {
 	marketplaceApi = os.Getenv("MARKETPLACE_API_URL")
 }
 
-func UserHasBoughtList(listId int64, firebaseToken string) (infos persistence.ListMarketplaceInfo, err error) {
+func UserHasBoughtList(listId int64, firebaseToken string) (infos dto.ListMarketplaceInfo, err error) {
 	url := marketplaceApi + "/lists/" + fmt.Sprint(listId) + "/information"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -35,7 +35,7 @@ func UserHasBoughtList(listId int64, firebaseToken string) (infos persistence.Li
 	}
 
 	var data struct {
-		Response persistence.ListMarketplaceInfo `json:"response"`
+		Response dto.ListMarketplaceInfo `json:"response"`
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(&data); err != nil {
@@ -49,7 +49,7 @@ func UserHasBoughtList(listId int64, firebaseToken string) (infos persistence.Li
 	return data.Response, nil
 }
 
-func UserHasBoughtElemental(elementalId string, firebaseToken string) (info persistence.ElementalMarketplaceInfo, err error) {
+func UserHasBoughtElemental(elementalId string, firebaseToken string) (info dto.ElementalMarketplaceInfo, err error) {
 	url := marketplaceApi + "/prompts/" + elementalId + "/information"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -69,7 +69,7 @@ func UserHasBoughtElemental(elementalId string, firebaseToken string) (info pers
 	}
 
 	var data struct {
-		Response persistence.ElementalMarketplaceInfo `json:"response"`
+		Response dto.ElementalMarketplaceInfo `json:"response"`
 	}
 
 	if err := json.NewDecoder(res.Body).Decode(&data); err != nil {

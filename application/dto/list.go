@@ -1,16 +1,6 @@
-package persistence
+package dto
 
 import "time"
-
-type Elemental struct {
-	Id              string
-	UserId          string
-	Template        string
-	Description     string
-	Title           string
-	IsPremium       bool
-	ElementalTypeId int64
-}
 
 type List struct {
 	CreatedAt        time.Time `json:"-"`
@@ -54,50 +44,6 @@ type ListChild struct {
 	ElementalTypeId int64       `json:"elemental_type_id"`
 }
 
-type JSONSubSection struct {
-	Title       string           `json:"title"`
-	Description string           `json:"description"`
-	Type        string           `json:"type"`
-	Body        string           `json:"body,omitempty"`
-	Items       []JSONSubSection `json:"items,omitempty"`
-}
-
-type ElementalJSONResponse struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Type        string `json:"type"`
-	Body        string `json:"body"`
-}
-
 type CompiledList struct {
 	CompiledItems string `json:"compiled_items"`
-}
-
-type ElementalPersistence interface {
-	FindById(id string) (Elemental, error)
-}
-
-type ListMarketplaceInfo struct {
-	IsBought     bool           `json:"isBought"`
-	IsTipable    bool           `json:"isTipable"`
-	NSales       int64          `json:"nSales"`
-	TutorialStep []TutorialStep `json:"tutorialStep,omitempty"`
-}
-
-type TutorialStep struct {
-	Id          int64  `json:"id,omitempty"`
-	PromptId    string `json:"promptId,omitempty"`
-	ListId      string `json:"listId,omitempty"`
-	Title       string `json:"title"`
-	VideoUrl    string `json:"videoUrl,omitempty"`
-	Description string `json:"description"`
-	OrderIndex  int64  `json:"orderIndex"`
-}
-
-type ElementalMarketplaceInfo struct {
-	IsBought     bool           `json:"isBought"`
-	IsTipable    bool           `json:"isTipable"`
-	Template     string         `json:"template,omitempty"`
-	TutorialStep []TutorialStep `json:"tutorialStep,omitempty"`
-	NSales       int64          `json:"nSales"`
 }

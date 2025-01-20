@@ -3,63 +3,35 @@ package persistence
 import (
 	"database/sql"
 	"fmt"
+
+	"github.com/gpessoni/compiled/application/dto"
 )
 
-type PostgresPromptPersistenceAdapter struct {
-	dbReader *sql.DB
+type ListPersistence struct {
+	db *sql.DB
 }
 
-func NewPostgresAdapter(db *sql.DB) *PostgresPromptPersistenceAdapter {
-	return &PostgresPromptPersistenceAdapter{dbReader: db}
+func NewListPersistence(db *sql.DB) *ListPersistence {
+	return &ListPersistence{db: db}
 }
 
-func (pppa PostgresPromptPersistenceAdapter) ElementalFindById(id string) (Elemental, error) {
-	query := `SELECT user_id, template, description, title, elemental_type_id,	is_premium
-		FROM prompt WHERE id = $1`
+func (lp *ListPersistence) FindByID(id int64) (dto.List, error) {
+	query := `SELECT title, description, price, video, is_premium, is_private, stripe_is_product,
+	elemental_type_id, is_hidden, price_original, price_type_id, table_id, table_index, table_orientation
+	FROM list WHERE id = $1`
+	row := lp.db.QueryRow(query, id)
 
-	row := pppa.dbReader.QueryRow(query, id)
-
-	var prompt Elemental
-	err := row.Scan(&prompt.UserId, &prompt.Template, &prompt.Description, &prompt.Title,
-		&prompt.ElementalTypeId, &prompt.IsPremium)
+	var list dto.List
+	err := row.Scan(&list.Title, &list.Description, &list.Price, &list.Video, &list.IsPremium,
+		&list.IsPrivate, &list.StripeIsProduct, &list.ElementalTypeId, &list.IsHidden,
+		&list.PriceOriginal, &list.PriceTypeId, &list.TableId, &list.TableIndex, &list.TableOrientation)
 	if err != nil {
-		return Elemental{}, fmt.Errorf("failed to find prompt: %w", err)
-	}
-	return prompt, nil
-}
-
-func (pppa PostgresPromptPersistenceAdapter) ListFindByID(id int64) (List, error) {
-	query := `SELECT title,
-	description,
-	price,
-	video,
-	is_premium,
-	is_private,
-	stripe_is_product,
-	elemental_type_id,
-	is_hidden,
-	price_original,
-	price_type_id,
-	table_id,
-	table_index,
-	table_orientation
-	FROM list l 
-	WHERE id = $1`
-
-	row := pppa.dbReader.QueryRow(query, id)
-
-	var list List
-	err := row.Scan(&list.Title, &list.Description, &list.Price, &list.Video,
-		&list.IsPremium, &list.IsPrivate, &list.StripeIsProduct, &list.ElementalTypeId, &list.IsHidden,
-		&list.PriceOriginal, &list.PriceTypeId,
-		&list.TableId, &list.TableIndex, &list.TableOrientation)
-	if err != nil {
-		return List{}, fmt.Errorf("failed to find list: %w", err)
+		return dto.List{}, fmt.Errorf("failed to find list: %w", err)
 	}
 	return list, nil
 }
 
-func (pppa PostgresPromptPersistenceAdapter) GetAllCompiledTextList(identifier interface{}, groupBy string) ([]ListChild, error) {
+func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy string) ([]dto.ListChild, error) {
 	filter := ""
 	justListOwner := false
 	if justListOwner {
@@ -128,14 +100,14 @@ func (pppa PostgresPromptPersistenceAdapter) GetAllCompiledTextList(identifier i
 		level           sql.NullInt64
 	)
 
-	rows, err := pppa.dbReader.Query(dml, idValue)
+	rows, err := lp.db.Query(dml, idValue)
 	if err != nil {
 		return nil, err
 	}
 
 	defer rows.Close()
 
-	var listChildren []ListChild
+	var listChildren []dto.ListChild
 
 	for rows.Next() {
 		if err := rows.Scan(&dblistId, &id, &title, &description, &template, &isPremium, &elementalTypeId, &pUserId, &lId, &lTitle, &lDescription, &lIsPremium, &userId, &level); err != nil {
@@ -147,7 +119,7 @@ func (pppa PostgresPromptPersistenceAdapter) GetAllCompiledTextList(identifier i
 			isList = true
 		}
 
-		listChild := ListChild{
+		listChild := dto.ListChild{
 			Id:              id.String,
 			LId:             lId.Int64,
 			IsList:          isList,
