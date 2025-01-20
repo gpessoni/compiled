@@ -14,14 +14,14 @@ func NewPostgresAdapter(db *sql.DB) *PostgresPromptPersistenceAdapter {
 }
 
 func (pppa PostgresPromptPersistenceAdapter) ElementalFindById(id string) (Elemental, error) {
-	query := `SELECT user_id, template, description, title, elemental_type_id
+	query := `SELECT user_id, template, description, title, elemental_type_id,	is_premium
 		FROM prompt WHERE id = $1`
 
 	row := pppa.dbReader.QueryRow(query, id)
 
 	var prompt Elemental
 	err := row.Scan(&prompt.UserId, &prompt.Template, &prompt.Description, &prompt.Title,
-		&prompt.ElementalTypeId)
+		&prompt.ElementalTypeId, &prompt.IsPremium)
 	if err != nil {
 		return Elemental{}, fmt.Errorf("failed to find prompt: %w", err)
 	}
@@ -31,7 +31,6 @@ func (pppa PostgresPromptPersistenceAdapter) ElementalFindById(id string) (Eleme
 func (pppa PostgresPromptPersistenceAdapter) ListFindByID(id int64) (List, error) {
 	query := `SELECT title,
 	description,
-	avatar,
 	price,
 	video,
 	is_premium,
@@ -41,21 +40,21 @@ func (pppa PostgresPromptPersistenceAdapter) ListFindByID(id int64) (List, error
 	is_hidden,
 	price_original,
 	price_type_id,
-	companies_section,
 	table_id,
 	table_index,
-	table_orientation,
+	table_orientation
 	FROM list l 
 	WHERE id = $1`
 
 	row := pppa.dbReader.QueryRow(query, id)
 
 	var list List
-	err := row.Scan(&list.Title, &list.Description, &list.Avatar, &list.Price, &list.Video,
+	err := row.Scan(&list.Title, &list.Description, &list.Price, &list.Video,
 		&list.IsPremium, &list.IsPrivate, &list.StripeIsProduct, &list.ElementalTypeId, &list.IsHidden,
-		&list.PriceOriginal, &list.PriceTypeId, &list.CompaniesSection,
+		&list.PriceOriginal, &list.PriceTypeId,
 		&list.TableId, &list.TableIndex, &list.TableOrientation)
 	if err != nil {
+		fmt.Print(err)
 		return List{}, fmt.Errorf("failed to find list: %w", err)
 	}
 	return list, nil

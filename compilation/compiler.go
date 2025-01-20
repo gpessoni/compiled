@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/gpessoni/libgo/constants"
-	"github.com/gpessoni/libgo/persistence"
-	"github.com/gpessoni/libgo/utils"
+	"github.com/gpessoni/compiled/adapter/marketplace"
+	"github.com/gpessoni/compiled/constants"
+	"github.com/gpessoni/compiled/persistence"
+	"github.com/gpessoni/compiled/utils"
 	_ "github.com/lib/pq"
 )
 
@@ -35,17 +36,25 @@ func GetAllCompiledJsonElemental(db *sql.DB, elementalId string, authUserId, tok
 	return response.(map[string]interface{}), nil
 }
 
+func GetAllCompiledJsonList(db *sql.DB, listId int64, authUserId, token, format, groupBy string) (map[string]interface{}, error) {
+	response, err := prepareListResponse(db, listId, authUserId, token, format, groupBy)
+	if err != nil {
+		return nil, err
+	}
+	return response.(map[string]interface{}), nil
+}
+
 func prepareListResponse(db *sql.DB, listId int64, authUserId, token, format, groupBy string) (interface{}, error) {
 	adapter := persistence.NewPostgresAdapter(db)
-	// list, err := adapter.ListFindByID(listId)
-	// if err != nil {
-	// 	return "List not found", err
-	// }
+	list, err := adapter.ListFindByID(listId)
+	if err != nil {
+		return "List not found", err
+	}
 
-	// canProceed, err := checkIfListIsPremiumBought(list, authUserId, token)
-	// if err != nil || !canProceed {
-	// 	return nil, errListPremiumNotBought
-	// }
+	canProceed, err := checkIfListIsPremiumBought(list, authUserId, token)
+	if err != nil || !canProceed {
+		return "You need to buy this list to access it", err
+	}
 
 	childs, err := adapter.GetAllCompiledTextList(listId, "")
 	if err != nil {
@@ -142,22 +151,22 @@ func prepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 		}
 	}
 
-	// canProceed, err := checkIfElementalIsPremiumBought(elemental, authUserId, token)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	canProceed, err := checkIfElementalIsPremiumBought(elemental, authUserId, token)
+	if err != nil {
+		return nil, err
+	}
 
-	// body := ""
-	// if canProceed {
-	// 	body = elemental.Template
-	// }
+	body := ""
+	if canProceed {
+		body = elemental.Template
+	}
 
 	if format == constants.Formats.JSON {
 		response := persistence.ElementalJSONResponse{
 			Title:       elemental.Title,
 			Description: elemental.Description,
 			Type:        strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
-			Body:        elemental.Template,
+			Body:        body,
 		}
 		return map[string]interface{}{
 			"compiled_items": response,
@@ -168,7 +177,7 @@ func prepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 				elemental.Title,
 				strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
 				elemental.Description,
-				elemental.Template),
+				body),
 		}, nil
 	} else {
 		return persistence.CompiledList{
@@ -176,14 +185,43 @@ func prepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 				elemental.Title,
 				strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
 				elemental.Description,
-				elemental.Template),
+				body),
 		}, nil
 	}
 }
 
+func checkIfListIsPremiumBought(list persistence.List, authUserId, token string) (bool, error) {
+
+	if !list.IsPremium || list.UserID == authUserId {
+		return true, nil
+	}
+
+	infos, err := marketplace.UserHasBoughtList(list.Id, token)
+	if err != nil || !infos.IsBought {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func checkIfElementalIsPremiumBought(element persistence.Elemental, authUserId, token string) (bool, error) {
+	if element.UserId == authUserId {
+		return true, nil
+	}
+
+	if !element.IsPremium {
+		return true, nil
+	}
+
+	infos, err := marketplace.UserHasBoughtElemental(element.Id, token)
+	if err != nil || !infos.IsBought {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func fillItems(parent *persistence.ListChild, childs []persistence.ListChild, authUserId string, token string) {
-	fmt.Print(parent, "\n")
-	fmt.Print("\n", len(childs), "\n", "\n")
 	if parent.Items == nil {
 		parent.Items = []persistence.ListChild{}
 	}
@@ -200,10 +238,23 @@ func fillItemsRecursive(parent *persistence.ListChild, childs []persistence.List
 
 	for i := range childs {
 		if parent.LId == childs[i].ListId {
+			canProceed := true
 			if childs[i].IsList {
 				fillItemsRecursive(&childs[i], childs, authUserId, token, visited)
 			}
 
+			if childs[i].IsPremium {
+				list := persistence.List{
+					Id:        childs[i].LId,
+					IsPremium: childs[i].IsPremium,
+					UserID:    childs[i].UserId,
+				}
+				canProceed, _ = checkIfListIsPremiumBought(list, authUserId, token)
+			}
+
+			if canProceed {
+				parent.Items = append(parent.Items, childs[i])
+			}
 		}
 	}
 }

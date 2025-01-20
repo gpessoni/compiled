@@ -8,6 +8,7 @@ type Elemental struct {
 	Template        string
 	Description     string
 	Title           string
+	IsPremium       bool
 	ElementalTypeId int64
 }
 
@@ -31,10 +32,10 @@ type List struct {
 	IsHidden         bool      `json:"-"`
 	CompaniesSection bool      `json:"-"`
 	CompanyId        int64     `json:"company_id,omitempty"`
-	TableId          string    `json:"table_id,omitempty"`
-	TableOrientation string    `json:"table_orientation,omitempty"`
-	TableIndex       int64     `json:"table_index,omitempty"`
-	AuxId            string    `json:"-"`
+	TableId          *string   `json:"table_id,omitempty"`
+	TableOrientation *string   `json:"table_orientation,omitempty"`
+	TableIndex       *int64    `json:"table_index,omitempty"`
+	AuxId            *string   `json:"-"`
 	IsNew            bool      `json:"-"`
 }
 
@@ -74,4 +75,29 @@ type CompiledList struct {
 
 type ElementalPersistence interface {
 	FindById(id string) (Elemental, error)
+}
+
+type ListMarketplaceInfo struct {
+	IsBought     bool           `json:"isBought"`
+	IsTipable    bool           `json:"isTipable"`
+	NSales       int64          `json:"nSales"`
+	TutorialStep []TutorialStep `json:"tutorialStep,omitempty"`
+}
+
+type TutorialStep struct {
+	Id          int64  `json:"id,omitempty"`
+	PromptId    string `json:"promptId,omitempty"`
+	ListId      string `json:"listId,omitempty"`
+	Title       string `json:"title"`
+	VideoUrl    string `json:"videoUrl,omitempty"`
+	Description string `json:"description"`
+	OrderIndex  int64  `json:"orderIndex"`
+}
+
+type ElementalMarketplaceInfo struct {
+	IsBought     bool           `json:"isBought"`
+	IsTipable    bool           `json:"isTipable"`
+	Template     string         `json:"template,omitempty"`
+	TutorialStep []TutorialStep `json:"tutorialStep,omitempty"`
+	NSales       int64          `json:"nSales"`
 }
