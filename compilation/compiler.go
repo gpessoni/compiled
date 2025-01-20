@@ -262,7 +262,6 @@ func fillItemsRecursive(parent *persistence.ListChild, childs []persistence.List
 const maxHeaderLevel = 6
 
 func parseListResponse(list persistence.ListChild, level string, authUserId string, token string, sectionCounter *int, subSectionCounter *int, format string) string {
-	fmt.Print("Aqui lista \n")
 	var result strings.Builder
 	typeName := strings.Title(constants.ElementalConstants.ElementalsArray[list.ElementalTypeId].Name)
 	if typeName == "" {
@@ -306,11 +305,8 @@ func parseListResponse(list persistence.ListChild, level string, authUserId stri
 			childDepth = maxHeaderLevel
 		}
 		childHeaderLevel := strings.Repeat("#", childDepth)
-		fmt.Print(item.ElementalTypeId, "\n")
-		fmt.Print(item.IsList, "\n")
 
 		if !item.IsList && item.ElementalTypeId != constants.ElementalConstants.Table.ID {
-			fmt.Print("Aqui2")
 
 			if format == constants.Formats.Markdown {
 				result.WriteString(fmt.Sprintf("%s%s %s %s\n", childIndentation, childHeaderLevel, itemLevel, item.Title))

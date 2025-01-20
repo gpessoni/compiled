@@ -54,7 +54,6 @@ func (pppa PostgresPromptPersistenceAdapter) ListFindByID(id int64) (List, error
 		&list.PriceOriginal, &list.PriceTypeId,
 		&list.TableId, &list.TableIndex, &list.TableOrientation)
 	if err != nil {
-		fmt.Print(err)
 		return List{}, fmt.Errorf("failed to find list: %w", err)
 	}
 	return list, nil
