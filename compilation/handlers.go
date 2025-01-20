@@ -9,7 +9,7 @@ import (
 	ListPersistence "github.com/gpessoni/compiled/adapters/persistence/list"
 	"github.com/gpessoni/compiled/application/constants"
 	"github.com/gpessoni/compiled/application/dto"
-	"github.com/gpessoni/compiled/utils"
+	"github.com/gpessoni/compiled/application/utils"
 )
 
 const maxHeaderLevel = 6
