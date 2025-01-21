@@ -55,6 +55,11 @@ func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy
 		idValue = v
 	}
 
+	crossedOrientation := "column"
+	if groupBy == "column" {
+		crossedOrientation = "row"
+	}
+
 	dml := `
 		with recursive folder_content as (
 		select *, 0::bigint as list_id, array[id] as path, 1 as level
@@ -69,16 +74,17 @@ func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy
 			INNER JOIN folder_content fc ON lp.list_id = fc.id
 		WHERE l.id <> ALL(fc.path)
 	)
-	select 0, null, null, null, null, null, null, null, l.id, l.title, l.description, l.is_premium, l.user_id , 0
+	select 0, null, null, null, null, null, null, null, l.id, l.title, l.description, l.is_premium, l.user_id , l.table_index, 0
 		from list l
 	where ` + idField + ` = $1 ` + orientation + `
 
 		union all
 	
-	select lp.list_id, p.id, p.title, p.description, p.template, p.is_premium, p.elemental_type_id, p.user_id, li.id, li.title, li.description, li.is_premium, li.user_id , fc.level
+	select lp.list_id, p.id, p.title, p.description, p.template, p.is_premium, p.elemental_type_id, p.user_id, li.id, li.title, li.description, li.is_premium, li.user_id , coalesce(li.table_index, crossed.table_index), fc.level
 	FROM list_prompt lp
 		inner join list l on l.id = lp.list_id
 		left join prompt p on lp.prompt_id = p.id
+		left join list crossed on crossed.id = p.table_` + crossedOrientation + `
 		left join list li on lp.list_item_id = li.id
 		inner join folder_content fc on fc.id = lp.list_id
 	WHERE 1=1 ` + filter
@@ -97,11 +103,13 @@ func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy
 		lDescription    sql.NullString
 		lIsPremium      sql.NullBool
 		userId          sql.NullString
+		tableIndex      sql.NullInt64
 		level           sql.NullInt64
 	)
 
 	rows, err := lp.db.Query(dml, idValue)
 	if err != nil {
+		fmt.Print(err)
 		return nil, err
 	}
 
@@ -110,7 +118,7 @@ func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy
 	var listChildren []dto.ListChild
 
 	for rows.Next() {
-		if err := rows.Scan(&dblistId, &id, &title, &description, &template, &isPremium, &elementalTypeId, &pUserId, &lId, &lTitle, &lDescription, &lIsPremium, &userId, &level); err != nil {
+		if err := rows.Scan(&dblistId, &id, &title, &description, &template, &isPremium, &elementalTypeId, &pUserId, &lId, &lTitle, &lDescription, &lIsPremium, &userId, &tableIndex, &level); err != nil {
 			return nil, err
 		}
 
@@ -130,6 +138,7 @@ func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy
 			IsPremium:       isPremium.Bool || lIsPremium.Bool,
 			UserId:          userId.String + pUserId.String,
 			Level:           level.Int64,
+			TableIndex:      tableIndex.Int64,
 			ElementalTypeId: elementalTypeId.Int64,
 		}
 		listChildren = append(listChildren, listChild)

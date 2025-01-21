@@ -14,7 +14,7 @@ type ElementalJSONResponse struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Type        string `json:"type"`
-	Body        string `json:"body"`
+	Content     string `json:"content"`
 }
 
 type ElementalMarketplaceInfo struct {

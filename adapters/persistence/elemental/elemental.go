@@ -24,6 +24,7 @@ func (ep *ElementalPersistence) FindById(id string) (dto.Elemental, error) {
 	err := row.Scan(&elemental.UserId, &elemental.Template, &elemental.Description, &elemental.Title,
 		&elemental.ElementalTypeId, &elemental.IsPremium)
 	if err != nil {
+		fmt.Print(err)
 		return dto.Elemental{}, fmt.Errorf("failed to find elemental: %w", err)
 	}
 	return elemental, nil

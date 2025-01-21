@@ -42,6 +42,7 @@ type ListChild struct {
 	Items           []ListChild `json:"items"`
 	Level           int64       `json:"level"`
 	ElementalTypeId int64       `json:"elemental_type_id"`
+	TableIndex      int64       `json:"table_index"`
 }
 
 type CompiledList struct {

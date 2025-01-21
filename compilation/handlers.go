@@ -94,7 +94,7 @@ func prepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 
 		for i := 0; i < len(childs); i++ {
 			for j := i + 1; j < len(childs); j++ {
-				if childs[i].Level < childs[j].Level {
+				if childs[i].Level < childs[j].Level || (childs[i].Level == childs[j].Level && childs[i].TableIndex > childs[j].TableIndex) {
 					childs[i], childs[j] = childs[j], childs[i]
 				}
 			}
@@ -127,9 +127,9 @@ func prepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 		return nil, err
 	}
 
-	body := ""
+	content := ""
 	if canProceed {
-		body = elemental.Template
+		content = elemental.Template
 	}
 
 	if format == constants.Formats.JSON {
@@ -137,26 +137,26 @@ func prepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 			Title:       elemental.Title,
 			Description: elemental.Description,
 			Type:        strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
-			Body:        body,
+			Content:     content,
 		}
 		return map[string]interface{}{
 			"compiled_items": response,
 		}, nil
 	} else if format == constants.Formats.Markdown {
 		return dto.CompiledList{
-			CompiledItems: fmt.Sprintf("# %s\nType: %s\nDescription: %s\nBody: %s\n",
+			CompiledItems: fmt.Sprintf("# %s\nType: %s\nDescription: %s\nContent: %s\n",
 				elemental.Title,
 				strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
 				elemental.Description,
-				body),
+				content),
 		}, nil
 	} else {
 		return dto.CompiledList{
-			CompiledItems: fmt.Sprintf("Title: %s\nType: %s\nDescription: %s\nBody: %s\n",
+			CompiledItems: fmt.Sprintf("Title: %s\nType: %s\nDescription: %s\nContent: %s\n",
 				elemental.Title,
 				strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
 				elemental.Description,
-				body),
+				content),
 		}, nil
 	}
 }
@@ -215,7 +215,7 @@ func parseListResponse(list dto.ListChild, level string, authUserId string, toke
 			}
 			result.WriteString(fmt.Sprintf("%s- Type: %s\n", childIndentation, strings.Title(constants.ElementalConstants.ElementalsArray[item.ElementalTypeId].Name)))
 			result.WriteString(fmt.Sprintf("%s- Description: %s\n", childIndentation, utils.RemoveHTMLTags(item.Description)))
-			result.WriteString(fmt.Sprintf("%s- Body: %s\n\n", childIndentation, utils.RemoveHTMLTags(item.Template)))
+			result.WriteString(fmt.Sprintf("%s- Content: %s\n\n", childIndentation, utils.RemoveHTMLTags(item.Template)))
 		} else {
 			result.WriteString(parseListResponse(item, itemLevel, authUserId, token, sectionCounter, subSectionCounter, format))
 		}
@@ -251,7 +251,7 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token string
 				Title:       item.Title,
 				Description: utils.RemoveHTMLTags(item.Description),
 				Type:        strings.Title(constants.ElementalConstants.ElementalsArray[item.ElementalTypeId].Name),
-				Body:        utils.RemoveHTMLTags(item.Template),
+				Content:     utils.RemoveHTMLTags(item.Template),
 				Items:       childJSON.Items,
 			})
 		}
