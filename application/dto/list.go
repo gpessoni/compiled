@@ -13,14 +13,8 @@ type List struct {
 	IsPremium        bool      `json:"is_premium"`
 	IsTutorialHidden bool      `json:"is_tutorial_hidden"`
 	Avatar           string    `json:"avatar,omitempty"`
-	Video            string    `json:"video,omitempty"`
-	Price            int64     `json:"price,omitempty"`
-	PriceOriginal    *int64    `json:"price_original,omitempty"`
-	PriceTypeId      int64     `json:"price_type_id,omitempty"`
-	StripeIsProduct  bool      `json:"-"`
 	ElementalTypeId  int64     `json:"elemental_type_id"`
 	IsHidden         bool      `json:"-"`
-	CompaniesSection bool      `json:"-"`
 	CompanyId        int64     `json:"company_id,omitempty"`
 	TableId          *string   `json:"table_id,omitempty"`
 	TableOrientation *string   `json:"table_orientation,omitempty"`

@@ -16,15 +16,15 @@ func NewListPersistence(db *sql.DB) *ListPersistence {
 }
 
 func (lp *ListPersistence) FindByID(id int64) (dto.List, error) {
-	query := `SELECT title, description, price, video, is_premium, is_private, stripe_is_product,
-	elemental_type_id, is_hidden, price_original, price_type_id, table_id, table_index, table_orientation
+	query := `SELECT title, description,  is_premium, is_private, 
+	elemental_type_id, is_hidden, table_id, table_index, table_orientation
 	FROM list WHERE id = $1`
 	row := lp.db.QueryRow(query, id)
 
 	var list dto.List
-	err := row.Scan(&list.Title, &list.Description, &list.Price, &list.Video, &list.IsPremium,
-		&list.IsPrivate, &list.StripeIsProduct, &list.ElementalTypeId, &list.IsHidden,
-		&list.PriceOriginal, &list.PriceTypeId, &list.TableId, &list.TableIndex, &list.TableOrientation)
+	err := row.Scan(&list.Title, &list.Description, &list.IsPremium,
+		&list.IsPrivate, &list.ElementalTypeId, &list.IsHidden,
+		&list.TableId, &list.TableIndex, &list.TableOrientation)
 	if err != nil {
 		return dto.List{}, fmt.Errorf("failed to find list: %w", err)
 	}
