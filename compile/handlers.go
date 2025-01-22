@@ -1,4 +1,4 @@
-package compilation
+package compile
 
 import (
 	"database/sql"
@@ -14,7 +14,7 @@ import (
 
 const maxHeaderLevel = 6
 
-func prepareListResponse(db *sql.DB, listId int64, authUserId, token, format, groupBy string) (interface{}, error) {
+func PrepareListResponse(db *sql.DB, listId int64, authUserId, token, format, groupBy, fields string) (interface{}, error) {
 	ListPersistence := ListPersistence.NewListPersistence(db)
 	list, err := ListPersistence.FindByID(listId)
 	if err != nil {
@@ -77,13 +77,21 @@ func prepareListResponse(db *sql.DB, listId int64, authUserId, token, format, gr
 	}
 }
 
-func prepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format, groupBy string) (interface{}, error) {
+func PrepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format, groupBy, fields string) (interface{}, error) {
 	elementalPersistence := ElementalPersistence.NewElementalPersistence(db)
 	ListPersistence := ListPersistence.NewListPersistence(db)
 
 	elemental, err := elementalPersistence.FindById(elementalId)
 	if err != nil {
-		return "Failed to get prompts from list", err
+		return "Failed to get elemental", err
+	}
+
+	elementalData := map[string]interface{}{
+		"id":          elemental.Id,
+		"title":       elemental.Title,
+		"type":        strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
+		"description": elemental.Description,
+		"content":     elemental.Template,
 	}
 
 	if elemental.ElementalTypeId == constants.ElementalConstants.Table.ID {
@@ -127,36 +135,20 @@ func prepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 		return nil, err
 	}
 
-	content := ""
-	if canProceed {
-		content = elemental.Template
-	}
+	selectedFields := strings.Split(fields, ",")
+	compiledItems := buildDynamicResponse(selectedFields, elementalData, format, canProceed)
 
 	if format == constants.Formats.JSON {
-		response := dto.ElementalJSONResponse{
-			Title:       elemental.Title,
-			Description: elemental.Description,
-			Type:        strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
-			Content:     content,
-		}
 		return map[string]interface{}{
-			"compiled_items": response,
+			"compiled_items": compiledItems,
 		}, nil
 	} else if format == constants.Formats.Markdown {
 		return dto.CompiledList{
-			CompiledItems: fmt.Sprintf("# %s\nType: %s\nDescription: %s\nContent: %s\n",
-				elemental.Title,
-				strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
-				elemental.Description,
-				content),
+			CompiledItems: compiledItems,
 		}, nil
 	} else {
 		return dto.CompiledList{
-			CompiledItems: fmt.Sprintf("Title: %s\nType: %s\nDescription: %s\nContent: %s\n",
-				elemental.Title,
-				strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
-				elemental.Description,
-				content),
+			CompiledItems: compiledItems,
 		}, nil
 	}
 }
@@ -268,4 +260,29 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token string
 		Description: utils.RemoveHTMLTags(list.Description),
 		Items:       subSections,
 	}
+}
+
+func buildDynamicResponse(fields []string, data map[string]interface{}, format string, canProceed bool) string {
+	var compiledItems string
+	var isFirstField bool
+
+	isFirstField = true
+
+	if _, exists := data["content"]; exists && !canProceed {
+		data["content"] = ""
+	}
+
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if value, exists := data[field]; exists {
+			if format == constants.Formats.Markdown && isFirstField {
+				compiledItems += fmt.Sprintf("# %s: %v\n", field, value)
+				isFirstField = false
+			} else {
+				compiledItems += fmt.Sprintf("%s: %v\n", field, value)
+			}
+		}
+	}
+
+	return compiledItems
 }

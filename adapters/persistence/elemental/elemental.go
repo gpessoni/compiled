@@ -16,12 +16,12 @@ func NewElementalPersistence(db *sql.DB) *ElementalPersistence {
 }
 
 func (ep *ElementalPersistence) FindById(id string) (dto.Elemental, error) {
-	query := `SELECT user_id, template, description, title, elemental_type_id, is_premium
+	query := `SELECT id, user_id, template, description, title, elemental_type_id, is_premium
 		FROM prompt WHERE id = $1`
 	row := ep.db.QueryRow(query, id)
 
 	var elemental dto.Elemental
-	err := row.Scan(&elemental.UserId, &elemental.Template, &elemental.Description, &elemental.Title,
+	err := row.Scan(&elemental.Id, &elemental.UserId, &elemental.Template, &elemental.Description, &elemental.Title,
 		&elemental.ElementalTypeId, &elemental.IsPremium)
 	if err != nil {
 		fmt.Print(err)

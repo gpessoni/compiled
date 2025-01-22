@@ -1,4 +1,4 @@
-package compilation
+package compile
 
 import (
 	"github.com/gpessoni/compiled/adapters/marketplace"
