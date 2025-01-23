@@ -1,16 +1,16 @@
 package dto
 
 type JSONSubSection struct {
-	Id          string           `json:"id"`
-	Title       string           `json:"title"`
+	Id          string           `json:"id,omitempty"`
+	Title       string           `json:"title,omitempty"`
 	Description string           `json:"description"`
-	Type        string           `json:"type"`
+	Type        string           `json:"type,omitempty"`
 	Content     string           `json:"content,omitempty"`
-	Url         string           `json:"url"`
+	Url         string           `json:"url,omitempty"`
 	Items       []JSONSubSection `json:"items,omitempty"`
 	IsPremium   bool             `json:"isPremium"`
-	Video       string           `json:"video"`
-	Images      string           `json:"image"`
-	Price       int64            `json:"price"`
-	Tutorial    string           `json:"tutorial"`
+	Video       string           `json:"video,omitempty"`
+	Images      string           `json:"image,omitempty"`
+	Price       int64            `json:"price,omitempty"`
+	Tutorial    string           `json:"tutorial,omitempty"`
 }
