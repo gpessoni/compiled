@@ -8,7 +8,6 @@ type JSONSubSection struct {
 	Content     string           `json:"content,omitempty"`
 	Url         string           `json:"url,omitempty"`
 	Items       []JSONSubSection `json:"items,omitempty"`
-	IsPremium   bool             `json:"isPremium"`
 	Video       string           `json:"video,omitempty"`
 	Images      string           `json:"image,omitempty"`
 	Price       int64            `json:"price,omitempty"`

@@ -238,9 +238,15 @@ func parseListResponse(list dto.ListChild, level string, authUserId string, toke
 }
 
 func addFieldToSubSection(field string, subSection *dto.JSONSubSection, item dto.ListChild) {
+	id := ""
+	if item.IsList {
+		id = fmt.Sprintf("%d", item.LId)
+	} else {
+		id = item.Id
+	}
 	switch field {
 	case "id":
-		subSection.Id = item.Id
+		subSection.Id = id
 	case "title":
 		subSection.Title = item.Title
 	case "description":
@@ -259,8 +265,6 @@ func addFieldToSubSection(field string, subSection *dto.JSONSubSection, item dto
 		subSection.Price = item.Price
 	case "tutorial":
 		subSection.Tutorial = item.Tutorial
-	case "is_premium":
-		subSection.IsPremium = item.IsPremium
 	}
 }
 
@@ -279,7 +283,6 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 				Items: childJSON.Items,
 			})
 
-			// Adicione os campos especificados
 			for field := range selectedFields {
 				addFieldToSubSection(field, &subSections[len(subSections)-1], item)
 			}
