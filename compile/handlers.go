@@ -288,16 +288,26 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 	for _, item := range list.Items {
 		if item.IsList {
 			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
-			subSection := map[string]interface{}{}
+
+			// Usando um struct temporário para ordenar os campos
+			subSection := struct {
+				Fields map[string]interface{} `json:"fields"`
+				Items  interface{}            `json:"items"`
+			}{
+				Fields: map[string]interface{}{},
+				Items:  childJSON["items"],
+			}
 
 			for field := range selectedFields {
 				temp := dto.JSONSubSection{}
 				addFieldToSubSection(field, &temp, item)
-				subSection[field] = getFieldValue(field, temp)
+				subSection.Fields[field] = getFieldValue(field, temp)
 			}
 
-			subSection["items"] = childJSON["items"]
-			subSections = append(subSections, subSection)
+			subSections = append(subSections, map[string]interface{}{
+				"fields": subSection.Fields,
+				"items":  subSection.Items,
+			})
 		} else {
 			list := dto.List{
 				Id:          item.ListId,
@@ -317,33 +327,50 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 				continue
 			}
 
-			subSection := map[string]interface{}{}
+			subSection := struct {
+				Fields map[string]interface{}   `json:"fields"`
+				Items  []map[string]interface{} `json:"items"`
+			}{
+				Fields: map[string]interface{}{},
+				Items:  []map[string]interface{}{},
+			}
 
 			for field := range selectedFields {
 				temp := dto.JSONSubSection{}
 				addFieldToSubSection(field, &temp, item)
-				subSection[field] = getFieldValue(field, temp)
+				subSection.Fields[field] = getFieldValue(field, temp)
 			}
 
-			subSection["items"] = []map[string]interface{}{}
-			subSections = append(subSections, subSection)
+			subSections = append(subSections, map[string]interface{}{
+				"fields": subSection.Fields,
+				"items":  subSection.Items,
+			})
 		}
 	}
 
 	// Construir o JSON final com Items no final
-	result := map[string]interface{}{}
+	result := struct {
+		Fields map[string]interface{}   `json:"fields"`
+		Items  []map[string]interface{} `json:"items"`
+	}{
+		Fields: map[string]interface{}{},
+		Items:  subSections,
+	}
 
-	// Adicione os campos dinâmicos
+	// Adicionando campos dinâmicos
 	for field := range selectedFields {
 		temp := dto.JSONSubSection{}
 		addFieldToSubSection(field, &temp, list)
-		result[field] = getFieldValue(field, temp)
+		result.Fields[field] = getFieldValue(field, temp)
 	}
 
-	// Adicione o campo Items no final
-	result["items"] = subSections
+	// Convertendo struct para map[string]interface{} para consistência
+	finalResult := map[string]interface{}{
+		"fields": result.Fields,
+		"items":  result.Items,
+	}
 
-	return result
+	return finalResult
 }
 
 func getFieldValue(field string, subSection dto.JSONSubSection) interface{} {
