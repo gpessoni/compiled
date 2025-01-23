@@ -275,18 +275,13 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 	for _, item := range list.Items {
 		if item.IsList {
 			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
-			subSections = append(subSections, dto.JSONSubSection{
-				Title:       item.Title,
-				Description: utils.RemoveHTMLTags(item.Description),
-				Type:        strings.Title(constants.ElementalConstants.List.Name),
-				Items:       childJSON.Items,
-				Url:         item.Url,
-				Video:       item.Video,
-				IsPremium:   item.IsPremium,
-				Images:      item.Images,
-				Price:       item.Price,
-				Tutorial:    item.Tutorial,
-			})
+			subSection := dto.JSONSubSection{Items: childJSON.Items}
+
+			for field := range selectedFields {
+				addFieldToSubSection(field, &subSection, item)
+			}
+
+			subSections = append(subSections, subSection)
 		} else {
 			list := dto.List{
 				Id:          item.ListId,
@@ -306,9 +301,7 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 			}
 
 			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
-			subSection := dto.JSONSubSection{
-				Items: childJSON.Items,
-			}
+			subSection := dto.JSONSubSection{Items: childJSON.Items}
 
 			for field := range selectedFields {
 				addFieldToSubSection(field, &subSection, item)
@@ -318,15 +311,8 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 		}
 	}
 
-	typeName := strings.Title(constants.ElementalConstants.ElementalsArray[list.ElementalTypeId].Name)
-	if typeName == "" {
-		typeName = strings.Title(constants.ElementalConstants.List.Name)
-	}
-
-	result := dto.JSONSubSection{
-		Items: subSections,
-	}
-
+	// Construir o resultado final com os campos selecionados
+	result := dto.JSONSubSection{Items: subSections}
 	for field := range selectedFields {
 		addFieldToSubSection(field, &result, list)
 	}
