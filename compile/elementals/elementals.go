@@ -9,7 +9,6 @@ import (
 )
 
 func GetAllCompiledText(db *sql.DB, elementalId string, authUserId, token, format, groupBy, fields string) (dto.CompiledList, error) {
-	fmt.Print("text, elemento")
 	if fields == "" {
 		return dto.CompiledList{}, fmt.Errorf("Error, no fields specified")
 	}
@@ -21,7 +20,6 @@ func GetAllCompiledText(db *sql.DB, elementalId string, authUserId, token, forma
 }
 
 func GetAllCompiledJson(db *sql.DB, elementalId string, authUserId, token, format, groupBy, fields string) (map[string]interface{}, error) {
-	fmt.Print("JSON, elemento")
 	if fields == "" {
 		return nil, fmt.Errorf("Error, no fields specified")
 	}

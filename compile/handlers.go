@@ -146,8 +146,18 @@ func PrepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 	compiledItems := buildDynamicResponse(selectedFields, elementalData, format, canProceed)
 
 	if format == constants.Formats.JSON {
+		parsedCompiledItems := map[string]string{}
+		for _, line := range strings.Split(compiledItems, "\n") {
+			parts := strings.SplitN(line, ": ", 2)
+			if len(parts) == 2 {
+				key := strings.TrimSpace(parts[0])
+				value := strings.TrimSpace(parts[1])
+				parsedCompiledItems[key] = value
+			}
+		}
+
 		return map[string]interface{}{
-			"compiled_items": compiledItems,
+			"compiled_items": parsedCompiledItems,
 		}, nil
 	} else if format == constants.Formats.Markdown {
 		return dto.CompiledList{
