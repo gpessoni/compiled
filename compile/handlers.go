@@ -288,9 +288,7 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 	for _, item := range list.Items {
 		if item.IsList {
 			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
-			subSection := map[string]interface{}{
-				"items": childJSON["items"],
-			}
+			subSection := map[string]interface{}{}
 
 			for field := range selectedFields {
 				temp := dto.JSONSubSection{}
@@ -298,6 +296,7 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 				subSection[field] = getFieldValue(field, temp)
 			}
 
+			subSection["items"] = childJSON["items"]
 			subSections = append(subSections, subSection)
 		} else {
 			list := dto.List{
@@ -319,24 +318,30 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 			}
 
 			subSection := map[string]interface{}{}
+
 			for field := range selectedFields {
 				temp := dto.JSONSubSection{}
 				addFieldToSubSection(field, &temp, item)
 				subSection[field] = getFieldValue(field, temp)
 			}
+
+			subSection["items"] = []map[string]interface{}{}
 			subSections = append(subSections, subSection)
 		}
 	}
 
-	// Construir JSON final
-	result := map[string]interface{}{
-		"items": subSections,
-	}
+	// Construir o JSON final com Items no final
+	result := map[string]interface{}{}
+
+	// Adicione os campos dinâmicos
 	for field := range selectedFields {
 		temp := dto.JSONSubSection{}
 		addFieldToSubSection(field, &temp, list)
 		result[field] = getFieldValue(field, temp)
 	}
+
+	// Adicione o campo Items no final
+	result["items"] = subSections
 
 	return result
 }
