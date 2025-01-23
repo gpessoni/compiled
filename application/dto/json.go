@@ -3,7 +3,7 @@ package dto
 type JSONSubSection struct {
 	Id          string           `json:"id,omitempty"`
 	Title       string           `json:"title,omitempty"`
-	Description string           `json:"description"`
+	Description string           `json:"description,omitempty"`
 	Type        string           `json:"type,omitempty"`
 	Content     string           `json:"content,omitempty"`
 	Url         string           `json:"url,omitempty"`
