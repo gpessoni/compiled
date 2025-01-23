@@ -277,25 +277,28 @@ func addFieldToSubSection(field string, subSection *dto.JSONSubSection, item dto
 		subSection.Tutorial = item.Tutorial
 	}
 }
-
-func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, fields string) dto.JSONSubSection {
+func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, fields string) map[string]interface{} {
 	selectedFields := make(map[string]bool)
 	for _, field := range strings.Split(fields, ",") {
 		selectedFields[strings.TrimSpace(field)] = true
 	}
 
-	subSections := []dto.JSONSubSection{}
+	subSections := []map[string]interface{}{}
 
 	for _, item := range list.Items {
 		if item.IsList {
 			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
-			subSections = append(subSections, dto.JSONSubSection{
-				Items: childJSON.Items,
-			})
+			subSection := map[string]interface{}{
+				"items": childJSON["items"],
+			}
 
 			for field := range selectedFields {
-				addFieldToSubSection(field, &subSections[len(subSections)-1], item)
+				temp := dto.JSONSubSection{}
+				addFieldToSubSection(field, &temp, item)
+				subSection[field] = getFieldValue(field, temp)
 			}
+
+			subSections = append(subSections, subSection)
 		} else {
 			list := dto.List{
 				Id:          item.ListId,
@@ -315,27 +318,54 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 				continue
 			}
 
-			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
-			subSection := dto.JSONSubSection{Items: childJSON.Items}
+			subSection := map[string]interface{}{}
 			for field := range selectedFields {
-				addFieldToSubSection(field, &subSection, item)
+				temp := dto.JSONSubSection{}
+				addFieldToSubSection(field, &temp, item)
+				subSection[field] = getFieldValue(field, temp)
 			}
 			subSections = append(subSections, subSection)
 		}
 	}
 
-	// Construa o JSON final com os campos selecionados
-	result := dto.JSONSubSection{
-		Items: subSections,
+	// Construir JSON final
+	result := map[string]interface{}{
+		"items": subSections,
 	}
-
 	for field := range selectedFields {
-		addFieldToSubSection(field, &result, list)
+		temp := dto.JSONSubSection{}
+		addFieldToSubSection(field, &temp, list)
+		result[field] = getFieldValue(field, temp)
 	}
 
 	return result
 }
 
+func getFieldValue(field string, subSection dto.JSONSubSection) interface{} {
+	switch field {
+	case "id":
+		return subSection.Id
+	case "title":
+		return subSection.Title
+	case "description":
+		return subSection.Description
+	case "type":
+		return subSection.Type
+	case "content":
+		return subSection.Content
+	case "url":
+		return subSection.Url
+	case "video":
+		return subSection.Video
+	case "images":
+		return subSection.Images
+	case "price":
+		return subSection.Price
+	case "tutorial":
+		return subSection.Tutorial
+	}
+	return nil
+}
 func buildDynamicResponse(fields []string, data map[string]interface{}, format string, canProceed bool) string {
 	var compiledItems string
 	var isFirstField bool
