@@ -275,13 +275,14 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 	for _, item := range list.Items {
 		if item.IsList {
 			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
-			subSection := dto.JSONSubSection{Items: childJSON.Items}
+			subSections = append(subSections, dto.JSONSubSection{
+				Items: childJSON.Items,
+			})
 
+			// Adicione os campos especificados
 			for field := range selectedFields {
-				addFieldToSubSection(field, &subSection, item)
+				addFieldToSubSection(field, &subSections[len(subSections)-1], item)
 			}
-
-			subSections = append(subSections, subSection)
 		} else {
 			list := dto.List{
 				Id:          item.ListId,
@@ -295,6 +296,7 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 				Price:       item.Price,
 				Tutorial:    item.Tutorial,
 			}
+
 			canProceed, err := checkIfListIsPremiumBought(list, authUserId, token)
 			if err != nil || !canProceed {
 				continue
@@ -302,17 +304,18 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 
 			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
 			subSection := dto.JSONSubSection{Items: childJSON.Items}
-
 			for field := range selectedFields {
 				addFieldToSubSection(field, &subSection, item)
 			}
-
 			subSections = append(subSections, subSection)
 		}
 	}
 
-	// Construir o resultado final com os campos selecionados
-	result := dto.JSONSubSection{Items: subSections}
+	// Construa o JSON final com os campos selecionados
+	result := dto.JSONSubSection{
+		Items: subSections,
+	}
+
 	for field := range selectedFields {
 		addFieldToSubSection(field, &result, list)
 	}
