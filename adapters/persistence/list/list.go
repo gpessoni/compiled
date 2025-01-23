@@ -67,7 +67,7 @@ func (lp *ListPersistence) FindByID(id int64) (dto.List, error) {
 	var list dto.List
 	err := row.Scan(&list.Id, &list.Title, &list.Description, &list.IsPremium,
 		&list.IsPrivate, &list.ElementalTypeId, &list.IsHidden,
-		&list.TableId, &list.TableIndex, &list.TableOrientation, &list.Url, &list.Video, &list.Images, &list.Price, &list.Tutorial)
+		&list.TableId, &list.TableIndex, &list.TableOrientation, &list.Video, &list.Images, &list.Url, &list.Price, &list.Tutorial)
 	if err != nil {
 		return dto.List{}, fmt.Errorf("failed to find list: %w", err)
 	}

@@ -25,7 +25,7 @@ func (ep *ElementalPersistence) FindById(id string) (dto.Elemental, error) {
     p.elemental_type_id,
     p.is_premium,
     COALESCE(p.video, '') AS video,
-    COALESCE(p.url, '') AS prompt_url,
+    COALESCE(p.url, '') AS url,
     COALESCE(STRING_AGG(pi2.url, ', '), '') AS images,
     p.price AS price,
     COALESCE(
@@ -51,7 +51,7 @@ GROUP BY
 
 	var elemental dto.Elemental
 	err := row.Scan(&elemental.Id, &elemental.UserId, &elemental.Template, &elemental.Description, &elemental.Title,
-		&elemental.ElementalTypeId, &elemental.IsPremium, &elemental.Url, &elemental.Video, &elemental.Images, &elemental.Price, &elemental.Tutorial)
+		&elemental.ElementalTypeId, &elemental.IsPremium, &elemental.Video, &elemental.Url, &elemental.Images, &elemental.Price, &elemental.Tutorial)
 	if err != nil {
 		return dto.Elemental{}, fmt.Errorf("failed to find elemental: %w", err)
 	}
