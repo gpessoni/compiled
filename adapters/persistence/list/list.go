@@ -16,15 +16,58 @@ func NewListPersistence(db *sql.DB) *ListPersistence {
 }
 
 func (lp *ListPersistence) FindByID(id int64) (dto.List, error) {
-	query := `SELECT title, description,  is_premium, is_private, 
-	elemental_type_id, is_hidden, table_id, table_index, table_orientation
-	FROM list WHERE id = $1`
+	query := `SELECT 
+		l.id,
+		l.title,
+		l.description,
+		l.is_premium,
+		l.is_private,
+		l.elemental_type_id,
+		l.is_hidden,
+		l.table_id,
+		l.table_index,
+		l.table_orientation,
+		COALESCE(l.video, '') AS video,
+		COALESCE(STRING_AGG(li.url, ', '), '') AS images,
+		l.url AS url,
+		l.price,
+		COALESCE(
+        (SELECT STRING_AGG(
+            CONCAT(tutorial_step.title, ': ', 
+                REGEXP_REPLACE(tutorial_step.description, '<[^>]+>', '', 'g')
+            ), ', '
+        )
+        FROM tutorial_step
+        WHERE tutorial_step.list_id = l.id AND l.is_tutorial_hidden = false), 
+        ''
+    ) AS tutorial
+	FROM 
+		list l
+	LEFT JOIN 
+		list_image li ON l.id = li.list_id
+	WHERE 
+		l.id = $1
+	GROUP BY 
+		l.id, 
+		l.title, 
+		l.description, 
+		l.is_premium, 
+		l.is_private, 
+		l.elemental_type_id, 
+		l.is_hidden, 
+		l.table_id, 
+		l.table_index, 
+		l.table_orientation, 
+		l.url,
+		l.price;
+;
+`
 	row := lp.db.QueryRow(query, id)
 
 	var list dto.List
-	err := row.Scan(&list.Title, &list.Description, &list.IsPremium,
+	err := row.Scan(&list.Id, &list.Title, &list.Description, &list.IsPremium,
 		&list.IsPrivate, &list.ElementalTypeId, &list.IsHidden,
-		&list.TableId, &list.TableIndex, &list.TableOrientation)
+		&list.TableId, &list.TableIndex, &list.TableOrientation, &list.Url, &list.Video, &list.Images, &list.Price, &list.Tutorial)
 	if err != nil {
 		return dto.List{}, fmt.Errorf("failed to find list: %w", err)
 	}
@@ -74,13 +117,41 @@ func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy
 			INNER JOIN folder_content fc ON lp.list_id = fc.id
 		WHERE l.id <> ALL(fc.path)
 	)
-	select 0, null, null, null, null, null, null, null, l.id, l.title, l.description, l.is_premium, l.user_id , l.table_index, 0
+	select 0, null, null, null, null, null, null, null, l.id, l.title, l.description, l.is_premium, l.user_id , l.table_index, 0, l.url, COALESCE(l.video, '') AS video,  (
+        SELECT STRING_AGG(li.url, ', ')
+        FROM list_image li
+        WHERE li.list_id = l.id
+    ) AS images, l.price,
+		COALESCE(
+        (SELECT STRING_AGG(
+            CONCAT(tutorial_step.title, ': ', 
+                REGEXP_REPLACE(tutorial_step.description, '<[^>]+>', '', 'g')
+            ), ', '
+        )
+        FROM tutorial_step
+        WHERE tutorial_step.list_id = l.id AND l.is_tutorial_hidden = false), 
+        ''
+    ) AS tutorial
 		from list l
 	where ` + idField + ` = $1 ` + orientation + `
 
 		union all
 	
-	select lp.list_id, p.id, p.title, p.description, p.template, p.is_premium, p.elemental_type_id, p.user_id, li.id, li.title, li.description, li.is_premium, li.user_id , coalesce(li.table_index, crossed.table_index), fc.level
+	select lp.list_id, p.id, p.title, p.description, p.template, p.is_premium, p.elemental_type_id, p.user_id, li.id, li.title, li.description, li.is_premium, li.user_id , coalesce(li.table_index, crossed.table_index), fc.level, p.url, COALESCE(p.video, '') AS video,
+    (
+        SELECT STRING_AGG(pi.url, ', ')
+        FROM prompt_image pi
+        WHERE pi.prompt_id = p.id
+    ) AS images, p.price, COALESCE(
+        (SELECT STRING_AGG(
+            CONCAT(tutorial_step.title, ': ', 
+                REGEXP_REPLACE(tutorial_step.description, '<[^>]+>', '', 'g')
+            ), ', '
+        )
+        FROM tutorial_step
+        WHERE tutorial_step.prompt_id = p.id AND p.is_tutorial_hidden = false), 
+        ''
+    ) AS tutorial
 	FROM list_prompt lp
 		inner join list l on l.id = lp.list_id
 		left join prompt p on lp.prompt_id = p.id
@@ -105,6 +176,11 @@ func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy
 		userId          sql.NullString
 		tableIndex      sql.NullInt64
 		level           sql.NullInt64
+		url             sql.NullString
+		video           sql.NullString
+		images          sql.NullString
+		price           sql.NullInt64
+		tutorial        sql.NullString
 	)
 
 	rows, err := lp.db.Query(dml, idValue)
@@ -118,7 +194,7 @@ func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy
 	var listChildren []dto.ListChild
 
 	for rows.Next() {
-		if err := rows.Scan(&dblistId, &id, &title, &description, &template, &isPremium, &elementalTypeId, &pUserId, &lId, &lTitle, &lDescription, &lIsPremium, &userId, &tableIndex, &level); err != nil {
+		if err := rows.Scan(&dblistId, &id, &title, &description, &template, &isPremium, &elementalTypeId, &pUserId, &lId, &lTitle, &lDescription, &lIsPremium, &userId, &tableIndex, &level, &url, &video, &images, &price, &tutorial); err != nil {
 			return nil, err
 		}
 
@@ -140,6 +216,11 @@ func (lp ListPersistence) GetAllCompiledTextList(identifier interface{}, groupBy
 			Level:           level.Int64,
 			TableIndex:      tableIndex.Int64,
 			ElementalTypeId: elementalTypeId.Int64,
+			Url:             url.String,
+			Video:           video.String,
+			Images:          images.String,
+			Price:           price.Int64,
+			Tutorial:        tutorial.String,
 		}
 		listChildren = append(listChildren, listChild)
 	}

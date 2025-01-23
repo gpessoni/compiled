@@ -3,6 +3,7 @@ package compile
 import (
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	ElementalPersistence "github.com/gpessoni/compiled/adapters/persistence/elemental"
@@ -14,7 +15,7 @@ import (
 
 const maxHeaderLevel = 6
 
-func PrepareListResponse(db *sql.DB, listId int64, authUserId, token, format, groupBy string) (interface{}, error) {
+func PrepareListResponse(db *sql.DB, listId int64, authUserId, token, format, groupBy, fields string) (interface{}, error) {
 	ListPersistence := ListPersistence.NewListPersistence(db)
 	list, err := ListPersistence.FindByID(listId)
 	if err != nil {
@@ -68,22 +69,36 @@ func PrepareListResponse(db *sql.DB, listId int64, authUserId, token, format, gr
 
 	if format == constants.Formats.JSON {
 		response := map[string]interface{}{
-			"compiled_items": parseListResponseAsJSON(root, authUserId, token),
+			"compiled_items": parseListResponseAsJSON(root, authUserId, token, fields),
 		}
 		return response, nil
 	} else {
-		compiledText := parseListResponse(root, "", authUserId, token, new(int), new(int), format)
+		compiledText := parseListResponse(root, "", authUserId, token, new(int), new(int), format, fields)
 		return dto.CompiledList{CompiledItems: compiledText}, nil
 	}
 }
 
-func PrepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format, groupBy string) (interface{}, error) {
+func PrepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format, groupBy, fields string) (interface{}, error) {
 	elementalPersistence := ElementalPersistence.NewElementalPersistence(db)
 	ListPersistence := ListPersistence.NewListPersistence(db)
 
 	elemental, err := elementalPersistence.FindById(elementalId)
 	if err != nil {
-		return "Failed to get prompts from list", err
+		return "Failed to get elemental", err
+	}
+
+	elementalData := map[string]interface{}{
+		"id":          elemental.Id,
+		"title":       elemental.Title,
+		"type":        strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
+		"description": elemental.Description,
+		"content":     utils.RemoveHTMLTags(elemental.Template),
+		"url":         elemental.Url,
+		"is_premium":  elemental.IsPremium,
+		"video":       elemental.Video,
+		"images":      elemental.Images,
+		"price":       elemental.Price,
+		"tutorial":    elemental.Tutorial,
 	}
 
 	if elemental.ElementalTypeId == constants.ElementalConstants.Table.ID {
@@ -113,11 +128,11 @@ func PrepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 
 		if format == constants.Formats.JSON {
 			response := map[string]interface{}{
-				"compiled_items": parseListResponseAsJSON(root, authUserId, token),
+				"compiled_items": parseListResponseAsJSON(root, authUserId, token, fields),
 			}
 			return response, nil
 		} else {
-			compiledText := parseListResponse(root, "", authUserId, token, new(int), new(int), format)
+			compiledText := parseListResponse(root, "", authUserId, token, new(int), new(int), format, fields)
 			return dto.CompiledList{CompiledItems: compiledText}, nil
 		}
 	}
@@ -127,133 +142,179 @@ func PrepareResponseElemental(db *sql.DB, elementalId, authUserId, token, format
 		return nil, err
 	}
 
-	content := ""
-	if canProceed {
-		content = elemental.Template
-	}
+	selectedFields := strings.Split(fields, ",")
+	compiledItems := buildDynamicResponse(selectedFields, elementalData, format, canProceed)
 
 	if format == constants.Formats.JSON {
-		response := dto.ElementalJSONResponse{
-			Title:       elemental.Title,
-			Description: elemental.Description,
-			Type:        strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
-			Content:     content,
-		}
 		return map[string]interface{}{
-			"compiled_items": response,
+			"compiled_items": compiledItems,
 		}, nil
 	} else if format == constants.Formats.Markdown {
 		return dto.CompiledList{
-			CompiledItems: fmt.Sprintf("# %s\nType: %s\nDescription: %s\nContent: %s\n",
-				elemental.Title,
-				strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
-				elemental.Description,
-				content),
+			CompiledItems: compiledItems,
 		}, nil
 	} else {
 		return dto.CompiledList{
-			CompiledItems: fmt.Sprintf("Title: %s\nType: %s\nDescription: %s\nContent: %s\n",
-				elemental.Title,
-				strings.Title(constants.ElementalConstants.ElementalsArray[elemental.ElementalTypeId].Name),
-				elemental.Description,
-				content),
+			CompiledItems: compiledItems,
 		}, nil
 	}
 }
 
-func parseListResponse(list dto.ListChild, level string, authUserId string, token string, sectionCounter *int, subSectionCounter *int, format string) string {
+func parseListResponse(list dto.ListChild, level string, authUserId string, token string, sectionCounter *int, subSectionCounter *int, format, fields string) string {
+	selectedFields := make(map[string]bool)
+	for _, field := range strings.Split(fields, ",") {
+		selectedFields[strings.TrimSpace(field)] = true
+	}
+
 	var result strings.Builder
 	typeName := strings.Title(constants.ElementalConstants.ElementalsArray[list.ElementalTypeId].Name)
 	if typeName == "" {
 		typeName = strings.Title(constants.ElementalConstants.List.Name)
 	}
 
+	var id interface{}
+	if list.LId != 0 {
+		id = list.LId
+	} else {
+		id = list.Id
+	}
+
+	listData := map[string]interface{}{
+		"id":          id,
+		"title":       list.Title,
+		"type":        typeName,
+		"description": utils.RemoveHTMLTags(list.Description),
+		"content":     utils.RemoveHTMLTags(list.Template),
+		"url":         list.Url,
+		"video":       list.Video,
+		"is_premium":  list.IsPremium,
+		"images":      list.Images,
+		"price":       list.Price,
+		"tutorial":    list.Tutorial,
+	}
+
+	var keys []string
+	for key := range listData {
+		keys = append(keys, key)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		fieldOrder := strings.Split(fields, ",")
+		fieldMap := make(map[string]int)
+		for idx, field := range fieldOrder {
+			fieldMap[strings.TrimSpace(field)] = idx
+		}
+		return fieldMap[keys[i]] < fieldMap[keys[j]]
+	})
+
 	levelParts := strings.Split(level, ".")
 	indentation := strings.Repeat("  ", len(levelParts))
-
 	headerDepth := len(levelParts) + 1
 	if headerDepth > maxHeaderLevel {
 		headerDepth = maxHeaderLevel
 	}
 	headerLevel := strings.Repeat("#", headerDepth)
 
-	if level == "" {
-		*sectionCounter++
-		level = fmt.Sprintf("%d", *sectionCounter)
+	if isFieldSelected("title", selectedFields) {
 		if format == constants.Formats.Markdown {
-			result.WriteString(fmt.Sprintf("# %s\n", list.Title))
+			result.WriteString(fmt.Sprintf("%s%s %s\n", indentation, headerLevel, listData["title"]))
 		} else {
-			result.WriteString(fmt.Sprintf("%s\n", list.Title))
+			result.WriteString(fmt.Sprintf("%s%s\n", indentation, listData["title"]))
 		}
-		result.WriteString(fmt.Sprintf("%s- Type: %s\n", indentation, typeName))
-		result.WriteString(fmt.Sprintf("%s- Description: %s\n\n", indentation, utils.RemoveHTMLTags(list.Description)))
-	} else {
-		if format == constants.Formats.Markdown {
-			result.WriteString(fmt.Sprintf("%s%s %s %s\n", indentation, headerLevel, level, list.Title))
-		} else {
-			result.WriteString(fmt.Sprintf("%s %s %s\n", indentation, level, list.Title))
+	}
+
+	for _, key := range keys {
+		if key != "title" && isFieldSelected(key, selectedFields) {
+			result.WriteString(fmt.Sprintf("%s- %s: %v\n", indentation, strings.Title(key), listData[key]))
 		}
-		result.WriteString(fmt.Sprintf("%s- Type: %s\n", indentation, typeName))
-		result.WriteString(fmt.Sprintf("%s- Description: %s\n\n", indentation, utils.RemoveHTMLTags(list.Description)))
 	}
 
 	for i, item := range list.Items {
 		itemLevel := fmt.Sprintf("%s.%d", level, i+1)
-		childIndentation := strings.Repeat("  ", len(strings.Split(itemLevel, ".")))
-		childDepth := len(strings.Split(itemLevel, ".")) + 1
-		if childDepth > maxHeaderLevel {
-			childDepth = maxHeaderLevel
-		}
-		childHeaderLevel := strings.Repeat("#", childDepth)
-
-		if !item.IsList && item.ElementalTypeId != constants.ElementalConstants.Table.ID {
-
-			if format == constants.Formats.Markdown {
-				result.WriteString(fmt.Sprintf("%s%s %s %s\n", childIndentation, childHeaderLevel, itemLevel, item.Title))
-			} else {
-				result.WriteString(fmt.Sprintf("%s %s %s\n", childIndentation, itemLevel, item.Title))
-			}
-			result.WriteString(fmt.Sprintf("%s- Type: %s\n", childIndentation, strings.Title(constants.ElementalConstants.ElementalsArray[item.ElementalTypeId].Name)))
-			result.WriteString(fmt.Sprintf("%s- Description: %s\n", childIndentation, utils.RemoveHTMLTags(item.Description)))
-			result.WriteString(fmt.Sprintf("%s- Content: %s\n\n", childIndentation, utils.RemoveHTMLTags(item.Template)))
-		} else {
-			result.WriteString(parseListResponse(item, itemLevel, authUserId, token, sectionCounter, subSectionCounter, format))
-		}
+		result.WriteString(parseListResponse(item, itemLevel, authUserId, token, sectionCounter, subSectionCounter, format, fields))
 	}
 
 	return result.String()
 }
 
-func parseListResponseAsJSON(list dto.ListChild, authUserId string, token string) dto.JSONSubSection {
+func addFieldToSubSection(field string, subSection *dto.JSONSubSection, item dto.ListChild) {
+	switch field {
+	case "id":
+		subSection.Id = item.Id
+	case "title":
+		subSection.Title = item.Title
+	case "description":
+		subSection.Description = utils.RemoveHTMLTags(item.Description)
+	case "type":
+		subSection.Type = strings.Title(constants.ElementalConstants.ElementalsArray[item.ElementalTypeId].Name)
+	case "content":
+		subSection.Content = utils.RemoveHTMLTags(item.Template)
+	case "url":
+		subSection.Url = item.Url
+	case "video":
+		subSection.Video = item.Video
+	case "images":
+		subSection.Images = item.Images
+	case "price":
+		subSection.Price = item.Price
+	case "tutorial":
+		subSection.Tutorial = item.Tutorial
+	case "is_premium":
+		subSection.IsPremium = item.IsPremium
+	}
+}
+
+func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, fields string) dto.JSONSubSection {
+	selectedFields := make(map[string]bool)
+	for _, field := range strings.Split(fields, ",") {
+		selectedFields[strings.TrimSpace(field)] = true
+	}
+
 	subSections := []dto.JSONSubSection{}
 
 	for _, item := range list.Items {
 		if item.IsList {
-			childJSON := parseListResponseAsJSON(item, authUserId, token)
+			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
 			subSections = append(subSections, dto.JSONSubSection{
 				Title:       item.Title,
 				Description: utils.RemoveHTMLTags(item.Description),
 				Type:        strings.Title(constants.ElementalConstants.List.Name),
 				Items:       childJSON.Items,
+				Url:         item.Url,
+				Video:       item.Video,
+				IsPremium:   item.IsPremium,
+				Images:      item.Images,
+				Price:       item.Price,
+				Tutorial:    item.Tutorial,
 			})
 		} else {
 			list := dto.List{
-				Id:        item.ListId,
-				IsPremium: item.IsPremium,
-				UserID:    item.UserId,
+				Id:          item.ListId,
+				IsPremium:   item.IsPremium,
+				UserID:      item.UserId,
+				Title:       item.Title,
+				Description: utils.RemoveHTMLTags(item.Description),
+				Url:         item.Url,
+				Video:       item.Video,
+				Images:      item.Images,
+				Price:       item.Price,
+				Tutorial:    item.Tutorial,
 			}
 			canProceed, err := checkIfListIsPremiumBought(list, authUserId, token)
 			if err != nil || !canProceed {
 				continue
 			}
-			childJSON := parseListResponseAsJSON(item, authUserId, token)
-			subSections = append(subSections, dto.JSONSubSection{
-				Title:       item.Title,
-				Description: utils.RemoveHTMLTags(item.Description),
-				Type:        strings.Title(constants.ElementalConstants.ElementalsArray[item.ElementalTypeId].Name),
-				Content:     utils.RemoveHTMLTags(item.Template),
-				Items:       childJSON.Items,
-			})
+
+			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
+			subSection := dto.JSONSubSection{
+				Items: childJSON.Items,
+			}
+
+			for field := range selectedFields {
+				addFieldToSubSection(field, &subSection, item)
+			}
+
+			subSections = append(subSections, subSection)
 		}
 	}
 
@@ -262,10 +323,42 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token string
 		typeName = strings.Title(constants.ElementalConstants.List.Name)
 	}
 
-	return dto.JSONSubSection{
-		Title:       list.Title,
-		Type:        typeName,
-		Description: utils.RemoveHTMLTags(list.Description),
-		Items:       subSections,
+	result := dto.JSONSubSection{
+		Items: subSections,
 	}
+
+	for field := range selectedFields {
+		addFieldToSubSection(field, &result, list)
+	}
+
+	return result
+}
+
+func buildDynamicResponse(fields []string, data map[string]interface{}, format string, canProceed bool) string {
+	var compiledItems string
+	var isFirstField bool
+
+	isFirstField = true
+
+	if _, exists := data["content"]; exists && !canProceed {
+		data["content"] = ""
+	}
+
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if value, exists := data[field]; exists {
+			if format == constants.Formats.Markdown && isFirstField {
+				compiledItems += fmt.Sprintf("# %s: %v\n", field, value)
+				isFirstField = false
+			} else {
+				compiledItems += fmt.Sprintf("%s: %v\n", field, value)
+			}
+		}
+	}
+
+	return compiledItems
+}
+
+func isFieldSelected(field string, selectedFields map[string]bool) bool {
+	return selectedFields[field]
 }

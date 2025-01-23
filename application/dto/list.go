@@ -21,6 +21,10 @@ type List struct {
 	TableIndex       *int64    `json:"table_index,omitempty"`
 	AuxId            *string   `json:"-"`
 	IsNew            bool      `json:"-"`
+	Video            string    `json:"video"`
+	Images           string    `json:"images"`
+	Price            int64     `json:"price"`
+	Tutorial         string    `json:"tutorial"`
 }
 
 type ListChild struct {
@@ -37,6 +41,11 @@ type ListChild struct {
 	Level           int64       `json:"level"`
 	ElementalTypeId int64       `json:"elemental_type_id"`
 	TableIndex      int64       `json:"table_index"`
+	Url             string      `json:"url"`
+	Video           string      `json:"video"`
+	Images          string      `json:"images"`
+	Price           int64       `json:"price"`
+	Tutorial        string      `json:"tutorial"`
 }
 
 type CompiledList struct {

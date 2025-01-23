@@ -8,13 +8,11 @@ type Elemental struct {
 	Title           string
 	IsPremium       bool
 	ElementalTypeId int64
-}
-
-type ElementalJSONResponse struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Type        string `json:"type"`
-	Content     string `json:"content"`
+	Url             string
+	Video           string
+	Images          string
+	Price           *int64
+	Tutorial        string
 }
 
 type ElementalMarketplaceInfo struct {
