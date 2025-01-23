@@ -277,38 +277,31 @@ func addFieldToSubSection(field string, subSection *dto.JSONSubSection, item dto
 		subSection.Tutorial = item.Tutorial
 	}
 }
-func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, fields string) map[string]interface{} {
+func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, fields string) dto.JSONSubSection {
+	// Criando um mapa para os campos selecionados
 	selectedFields := make(map[string]bool)
 	for _, field := range strings.Split(fields, ",") {
 		selectedFields[strings.TrimSpace(field)] = true
 	}
 
-	subSections := []map[string]interface{}{}
+	// Inicializando a lista de sub-seções
+	subSections := []dto.JSONSubSection{}
 
+	// Iterando pelos itens da lista
 	for _, item := range list.Items {
+		// Se for uma lista, processa recursivamente
 		if item.IsList {
 			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
-
-			// Usando um struct temporário para ordenar os campos
-			subSection := struct {
-				Fields map[string]interface{} `json:"fields"`
-				Items  interface{}            `json:"items"`
-			}{
-				Fields: map[string]interface{}{},
-				Items:  childJSON["items"],
-			}
-
-			for field := range selectedFields {
-				temp := dto.JSONSubSection{}
-				addFieldToSubSection(field, &temp, item)
-				subSection.Fields[field] = getFieldValue(field, temp)
-			}
-
-			subSections = append(subSections, map[string]interface{}{
-				"fields": subSection.Fields,
-				"items":  subSection.Items,
+			subSections = append(subSections, dto.JSONSubSection{
+				Items: childJSON.Items,
 			})
+
+			// Adiciona os campos selecionados no item
+			for field := range selectedFields {
+				addFieldToSubSection(field, &subSections[len(subSections)-1], item)
+			}
 		} else {
+			// Criação da estrutura base para o item
 			list := dto.List{
 				Id:          item.ListId,
 				IsPremium:   item.IsPremium,
@@ -322,55 +315,36 @@ func parseListResponseAsJSON(list dto.ListChild, authUserId string, token, field
 				Tutorial:    item.Tutorial,
 			}
 
+			// Verificando se o usuário pode acessar a lista
 			canProceed, err := checkIfListIsPremiumBought(list, authUserId, token)
 			if err != nil || !canProceed {
 				continue
 			}
 
-			subSection := struct {
-				Fields map[string]interface{}   `json:"fields"`
-				Items  []map[string]interface{} `json:"items"`
-			}{
-				Fields: map[string]interface{}{},
-				Items:  []map[string]interface{}{},
-			}
+			// Processamento recursivo do item
+			childJSON := parseListResponseAsJSON(item, authUserId, token, fields)
+			subSection := dto.JSONSubSection{Items: childJSON.Items}
 
+			// Adicionando os campos selecionados ao item
 			for field := range selectedFields {
-				temp := dto.JSONSubSection{}
-				addFieldToSubSection(field, &temp, item)
-				subSection.Fields[field] = getFieldValue(field, temp)
+				addFieldToSubSection(field, &subSection, item)
 			}
-
-			subSections = append(subSections, map[string]interface{}{
-				"fields": subSection.Fields,
-				"items":  subSection.Items,
-			})
+			subSections = append(subSections, subSection)
 		}
 	}
 
-	// Construir o JSON final com Items no final
-	result := struct {
-		Fields map[string]interface{}   `json:"fields"`
-		Items  []map[string]interface{} `json:"items"`
-	}{
-		Fields: map[string]interface{}{},
-		Items:  subSections,
-	}
+	// Criando o retorno final com apenas os campos selecionados
+	result := dto.JSONSubSection{}
 
-	// Adicionando campos dinâmicos
+	// Adicionando os campos selecionados dinamicamente
 	for field := range selectedFields {
-		temp := dto.JSONSubSection{}
-		addFieldToSubSection(field, &temp, list)
-		result.Fields[field] = getFieldValue(field, temp)
+		addFieldToSubSection(field, &result, list)
 	}
 
-	// Convertendo struct para map[string]interface{} para consistência
-	finalResult := map[string]interface{}{
-		"fields": result.Fields,
-		"items":  result.Items,
-	}
+	// Adicionando o campo 'items' no final
+	result.Items = subSections
 
-	return finalResult
+	return result
 }
 
 func getFieldValue(field string, subSection dto.JSONSubSection) interface{} {
